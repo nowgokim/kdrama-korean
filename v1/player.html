@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-Drama Korean Audio</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            padding: 20px;
+        }
+        .player-container {
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            max-width: 350px;
+            width: 100%;
+            backdrop-filter: blur(10px);
+        }
+        .title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            color: #ff6b6b;
+        }
+        .scene-info {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 20px;
+        }
+        .status {
+            font-size: 1.1em;
+            margin: 20px 0;
+            min-height: 30px;
+        }
+        .status.loading {
+            color: #ffd93d;
+        }
+        .status.playing {
+            color: #6bcb77;
+        }
+        .status.done {
+            color: #ff6b6b;
+        }
+        .status.error {
+            color: #ff4757;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 3px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .close-btn {
+            display: none;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border-radius: 30px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        .close-btn:hover {
+            background: #ff4757;
+            transform: scale(1.05);
+        }
+        .close-btn.show {
+            display: inline-block;
+            animation: fadeIn 0.5s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255,255,255,0.2);
+            border-top-color: #ff6b6b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .hint {
+            font-size: 0.8em;
+            color: #888;
+            margin-top: 15px;
+        }
+        .replay-btn {
+            background: transparent;
+            color: #aaa;
+            border: 1px solid #aaa;
+            padding: 8px 20px;
+            font-size: 0.9em;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s ease;
+        }
+        .replay-btn:hover {
+            color: white;
+            border-color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="player-container">
+        <div class="title">K-Drama Korean</div>
+        <div class="scene-info" id="sceneInfo">Loading...</div>
+
+        <div class="spinner" id="spinner"></div>
+
+        <div class="status" id="status"></div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress"></div>
+        </div>
+
+        <button class="close-btn" id="closeBtn" onclick="closeWindow()">
+            Close Window
+        </button>
+
+        <button class="replay-btn" id="replayBtn" style="display:none" onclick="replay()">
+            Replay
+        </button>
+
+        <div class="hint" id="hint"></div>
+    </div>
+
+    <audio id="audio" preload="auto"></audio>
+
+    <script>
+        const audio = document.getElementById('audio');
+        const status = document.getElementById('status');
+        const progress = document.getElementById('progress');
+        const closeBtn = document.getElementById('closeBtn');
+        const replayBtn = document.getElementById('replayBtn');
+        const spinner = document.getElementById('spinner');
+        const sceneInfo = document.getElementById('sceneInfo');
+        const hint = document.getElementById('hint');
+
+        // URL 파라미터 파싱
+        const params = new URLSearchParams(window.location.search);
+        const series = params.get('s') || params.get('series');
+        const scene = params.get('t') || params.get('scene');
+
+        // 오디오 URL 생성
+        let audioUrl = '';
+        if (series && scene) {
+            audioUrl = `audio/${series}_${scene}_KO_DRAMA.mp3`;
+            sceneInfo.textContent = `${series.replace(/_/g, ' ')} - ${scene.replace(/_/g, ' ')}`;
+        } else {
+            // 직접 파일명이 전달된 경우
+            const file = params.get('f') || params.get('file');
+            if (file) {
+                audioUrl = `audio/${file}`;
+                sceneInfo.textContent = file.replace('.mp3', '').replace(/_/g, ' ');
+            }
+        }
+
+        if (!audioUrl) {
+            status.textContent = 'No audio specified';
+            status.className = 'status error';
+            spinner.style.display = 'none';
+            hint.textContent = 'Please provide audio parameters';
+        } else {
+            // 오디오 로드 및 재생
+            audio.src = audioUrl;
+            status.textContent = 'Loading...';
+            status.className = 'status loading';
+
+            audio.addEventListener('canplay', function() {
+                spinner.style.display = 'none';
+                status.textContent = 'Playing...';
+                status.className = 'status playing';
+                audio.play().catch(e => {
+                    status.textContent = 'Tap to play';
+                    status.className = 'status';
+                    document.body.onclick = () => {
+                        audio.play();
+                        document.body.onclick = null;
+                    };
+                });
+            });
+
+            audio.addEventListener('timeupdate', function() {
+                const percent = (audio.currentTime / audio.duration) * 100;
+                progress.style.width = percent + '%';
+            });
+
+            audio.addEventListener('ended', function() {
+                status.textContent = 'Playback complete';
+                status.className = 'status done';
+                closeBtn.classList.add('show');
+                replayBtn.style.display = 'inline-block';
+                hint.textContent = 'Return to your book or close this window';
+
+                // 3초 후 자동 닫기 시도
+                setTimeout(tryClose, 3000);
+            });
+
+            audio.addEventListener('error', function() {
+                spinner.style.display = 'none';
+                status.textContent = 'Audio not found';
+                status.className = 'status error';
+                hint.textContent = 'Please check your connection';
+                closeBtn.classList.add('show');
+            });
+        }
+
+        function replay() {
+            audio.currentTime = 0;
+            audio.play();
+            status.textContent = 'Playing...';
+            status.className = 'status playing';
+            closeBtn.classList.remove('show');
+            replayBtn.style.display = 'none';
+            hint.textContent = '';
+        }
+
+        function tryClose() {
+            // 자동 닫기 시도 (브라우저 정책에 따라 차단될 수 있음)
+            try {
+                window.close();
+            } catch (e) {
+                // 닫기 실패 시 무시
+            }
+
+            // 닫기 실패 시 안내
+            setTimeout(function() {
+                if (!window.closed) {
+                    hint.textContent = 'Please close this window manually';
+                }
+            }, 500);
+        }
+
+        function closeWindow() {
+            tryClose();
+        }
+    </script>
+</body>
+</html>
